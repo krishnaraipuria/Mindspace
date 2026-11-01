@@ -57,7 +57,32 @@ const JoinRoom=asyncHandler(async(req,res)=>{
     )
 })
 
+const saveRoom=asyncHandler(async(req,res)=>{
+    const {roomId}=req.body;
+    if(!roomId?.trim()){
+        throw new APIError(400,"Room ID is required")
+    }
+    const room=await Room.findOne({roomId:roomId});
+    if(!room){
+        throw new APIError(404,"Room not found")
+    }
+    const isSaved=room.isSaved;
+    if(isSaved){
+        throw new APIError(400,"Room is already saved")
+    }
+    const isadmin=await Member.findOne({roomId:room._id,socketId:req.socketId,role:"admin"});
+    if(!isadmin){
+        throw new APIError(403,"Only admin can save the room")
+    }
+    room.isSaved=true;
+    const savedKey=crypto.randomBytes(8).toString("hex");
+    room.savedKey=savedKey;
+    await room.save();
+    return res.status(200).json(
+        new APIResponse(200,{room}, "Room saved successfully")
+    )
+})
 
 
 
-export {createRoom,JoinRoom};
+export {createRoom,JoinRoom,saveRoom};
