@@ -22,6 +22,12 @@ const roomSchema=new Schema(
             type:String,
             unique:true,
             sparse:true,
+        },
+        OwnershipToken:{
+            type:String,
+            unique:true,
+            required:true,
+            select:false
         }
     },{timestamps:true}
 )

@@ -3,8 +3,8 @@ import http from "http";
 import connectdb from "./db/index.js";
 import { app } from "./app.js";
 import {Server} from "socket.io";
-import { Member } from "./models/member.models.js";
-import { Room } from "./models/room.models.js";
+import {socketConnection} from "./sockets/index.js";
+
 
 dotenv.config({
     path: './env'
@@ -23,29 +23,10 @@ const io=new Server(server,{
 
 app.set("io",io);
 
-io.on("connection",(socket)=>{
-    console.log("Socket connected",socket.id);
+socketConnection(io);
 
-    socket.on("disconnect", async ()=>{
-        try{
-            const member=Member.findOneAndDelete({socketId:socket.id});
-            if(!member){
-                console.log("Member not found for socketId:",socket.id);
-                return;
-            }
-            console.log("Member deleted for socketId:",socket.id);
-            const remainingMembers=Member.find({roomId:member.roomId});
-            if(remainingMembers.length===0){
-                const room=await Room.findById(member.roomId);
-                if(room && !room.isSaved){
-                    await Room.findByIdAndDelete(member.roomId);
-                    console.log("Room deleted for roomId:",member.roomId);
-                }
-            }
-        }catch(error){
-            console.log("Error in disconnect event:",error);
-        }
-    });
+server.on("error",(error)=>{
+    console.log("Error in server:",error);
 });
 
 connectdb()
