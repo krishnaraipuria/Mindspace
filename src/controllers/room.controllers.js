@@ -21,13 +21,14 @@ const createRoom=asyncHandler(async(req,res)=>{
         roomId:createRoomId,
         OwnershipToken:ownershipTokenHash
     })
+    // console.log("Client IP:", req.ip);
     const member=await Member.create({
         username:username,
         roomId:room._id,
         socketId:req.socketId,
-        role:"admin"
+        role:"admin",
     })
-    await req.socket.join(createRoomId);
+    await req.ioSocket.join(createRoomId);
     return res.status(201).json(
         new APIResponse(201,{roomId:room.roomId, ownershipToken}, "Room created successfully")
     )
@@ -35,6 +36,9 @@ const createRoom=asyncHandler(async(req,res)=>{
 
 const JoinRoom=asyncHandler(async(req,res)=>{
     const {username,roomId}=req.body;
+    const hostToken=req.headers["ownership-token"];
+    const hostTokenHash=hostToken?crypto.createHash("sha256").update(hostToken).digest("hex"):null;
+
     if(!username || username.trim()===""){
         throw new APIError(400,"Username is required")
     }
@@ -44,17 +48,29 @@ const JoinRoom=asyncHandler(async(req,res)=>{
     if(!req.socketId){
         throw new APIError(400,"Socket ID is required")
     }
-    const room=await Room.findOne({roomId:roomId});
+    const room=await Room.findOne({roomId:roomId}).select("+OwnershipToken");
     if(!room){
         throw new APIError(404,"Room not found")
+    }
+    if(hostToken && hostTokenHash===room.OwnershipToken){
+        const Admin=await Member.create({
+            username:username,
+            roomId:room._id,
+            socketId:req.socketId,
+            role:"admin",
+        })
+        await req.ioSocket.join(roomId);
+        return res.status(200).json(
+            new APIResponse(200,{room,Admin}, "Room joined successfully as admin")
+        )
     }
     const member=await Member.create({
         username:username,
         roomId:room._id,
         socketId:req.socketId,
-        role:"member"
+        role:"member",
     })
-    await req.socket.join(roomId);
+    await req.ioSocket.join(roomId);
     return res.status(200).json(
         new APIResponse(200,{room,member}, "Room joined successfully")
     )
@@ -66,7 +82,7 @@ const saveRoom=asyncHandler(async(req,res)=>{
     if(!roomId?.trim()){
         throw new APIError(400,"Room ID is required")
     }
-    const room=await Room.findOne({roomId:roomId})
+    const room=await Room.findOne({roomId:roomId}).select("+OwnershipToken");
     if(!room){
         throw new APIError(404,"Room not found")
     }
@@ -74,10 +90,12 @@ const saveRoom=asyncHandler(async(req,res)=>{
         throw new APIError(400,"Ownership token is required")
     }
     const hostTokenHash=crypto.createHash("sha256").update(hostToken).digest("hex");
+    // console.log("hostTokenHash:",hostTokenHash);
+    // console.log("room.OwnershipToken:",room.OwnershipToken);
     if(hostTokenHash!==room.OwnershipToken){
         throw new APIError(403,"Invalid ownership token")
     }
-    const isAdmin=await Member.findOne({roomId:room._id,socketId:req.socketId,role:"admin"});
+    const isAdmin=await Member.findOne({roomId:room._id,role:"admin"});
     if(!isAdmin){
         throw new APIError(403,"You are not the admin of this room")
     }

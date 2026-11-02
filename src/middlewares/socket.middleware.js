@@ -10,12 +10,12 @@ const socket=asyncHandler(async(req,_,next)=>{
     if(!io){
         throw new APIError(500,"Socket IO is not initialized")
     }
-    const socket=io.sockets.sockets.get(socketId);
-    if(!socket || socket.disconnected){
+    const ioSocket=io.sockets.sockets.get(socketId);
+    if(!ioSocket || ioSocket.disconnected){
         throw new APIError(404,"Socket not found")
     }
-    req.socket=socket;
-    req.socketId=socketId;
+    req.ioSocket = ioSocket;
+    req.socketId = ioSocket.id;
     next();
 })
 
