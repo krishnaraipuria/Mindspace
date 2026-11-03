@@ -1,6 +1,6 @@
 import {Member} from "../models/member.models.js";
 import {Room} from "../models/room.models.js";
-
+import {APIError} from "../utils/APIerror.js";
 
 
 const removeMemberFromRoom=(async(socketId)=>{
@@ -29,4 +29,4 @@ const removeMemberFromRoom=(async(socketId)=>{
     }
 })
 
-export {removeMemberFromRoom}
+export {removeMemberFromRoom};
