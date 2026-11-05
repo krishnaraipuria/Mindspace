@@ -38,26 +38,59 @@ const addElementToRoom=async(roomId,element,socket)=>{
     }
 }
 
-const removeElementFromRoom=async(roomId,elementId,socket)=>{
-    if(!roomId || !elementId){
-        throw new APIError(400,"Room ID and Element ID are required");
+const removeElementFromRoom=async(roomId,element,socket)=>{
+    if(!roomId || !element){
+        throw new APIError(400,"Room ID and Element are required");
     }
-    if(typeof elementId!=="string" || !elementId.trim()){
+    if(typeof element!=="object" || !element.elementId){
+        throw new APIError(400,"Element must be an object with an elementId property");
+    }
+    if(typeof element.elementId!=="string" || !element.elementId.trim()){
         throw new APIError(400,"Element ID must be a non-empty string");
     }
 
     const room= await AuthenticateRoom(roomId,socket);
-    const updatedRoom=await Room.findByIdAndUpdate(room._id,{$pull:{elements:{elementId:elementId}}},{new:true});
+    const updatedRoom=await Room.findByIdAndUpdate(room._id,{$pull:{elements:element}},{new:true});
     if(updatedRoom.modifiedCount===0){
         throw new APIError(500,"Failed to remove element from room");
     }
-    socket.to(roomId).emit("elementRemoved",elementId);
+    socket.to(roomId).emit("elementRemoved",element);
     return {
         message:"Element removed from room successfully",
-        elementId:elementId,
+        element:element,
         roomId:roomId
     }
 }
 
+const updateElementInRoom=async(roomId,oldElement,newElement,socket)=>{
+    if(!roomId || !oldElement || !newElement){
+        throw new APIError(400,"Room ID, old element, and new element are required");
+    }
+    if(typeof oldElement!=="object" || !oldElement.elementId){
+        throw new APIError(400,"Old element must be an object with an elementId property");
+    }
+    if(typeof newElement!=="object" || !newElement.elementId){
+        throw new APIError(400,"New element must be an object with an elementId property");
+    }
+    if(typeof oldElement.elementId!=="string" || !oldElement.elementId.trim()){
+        throw new APIError(400,"Old element ID must be a non-empty string");
+    }
+    if(typeof newElement.elementId!=="string" || !newElement.elementId.trim()){
+        throw new APIError(400,"New element ID must be a non-empty string");
+    }
 
-export {addElementToRoom,removeElementFromRoom};
+    const room= await AuthenticateRoom(roomId,socket);
+    const updatedRoom=await Room.findByIdAndUpdate(room._id,{$pull:{elements:oldElement},$push:{elements:newElement}},{new:true});
+    if(updatedRoom.modifiedCount===0){
+        throw new APIError(500,"Failed to update element in room");
+    }
+    socket.to(roomId).emit("elementUpdated",{old:oldElement,new:newElement});
+    return {
+        message:"Element updated in room successfully",
+        old:oldElement,
+        new:newElement,
+        roomId:roomId
+    }
+}
+
+export {addElementToRoom,removeElementFromRoom,updateElementInRoom};

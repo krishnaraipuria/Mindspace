@@ -1,6 +1,6 @@
 import {removeMemberFromRoom} from "./room.socket.js";
 
-import {addElementToRoom,removeElementFromRoom} from "./board.socket.js";
+import {addElementToRoom,removeElementFromRoom,updateElementInRoom} from "./board.socket.js";
 //all socket connections are handled here;
 
 const socketConnection=(io)=>{
@@ -34,6 +34,19 @@ const socketConnection=(io)=>{
             }
         });
 
+        socket.on("board:element:update",async(payload,ack)=>{
+            try{
+                const result=await updateElementInRoom(payload?.roomId,payload?.oldElement,payload?.newElement,socket);
+                if(ack && typeof ack === "function"){
+                    ack({success:true,data:result});
+                }
+            }catch(error){
+                console.error("Error updating element in board:",error);
+                if(ack && typeof ack === "function"){
+                    ack({success:false,message:error.message});
+                }
+            }
+        });
         socket.on("disconnect",async()=>{
             console.log("Socket disconnected:",socket.id);
             try{
