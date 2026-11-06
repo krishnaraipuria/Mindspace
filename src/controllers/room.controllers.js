@@ -5,6 +5,7 @@ import {APIResponse} from "../utils/APIResponse.js";
 import {Room} from "../models/room.models.js";
 import {Member} from "../models/member.models.js";
 import {asyncHandler} from "../utils/asyncHandler.js";
+import {broadcastMembers} from "../sockets/room.socket.js";
 
 const createRoom=asyncHandler(async(req,res)=>{
     const {username}=req.body;
@@ -29,6 +30,7 @@ const createRoom=asyncHandler(async(req,res)=>{
         role:"admin",
     })
     await req.ioSocket.join(createRoomId);
+    await broadcastMembers(req.ioSocket, room);
     return res.status(201).json(
         new APIResponse(201,{roomId:room.roomId, ownershipToken}, "Room created successfully")
     )
@@ -48,7 +50,7 @@ const JoinRoom=asyncHandler(async(req,res)=>{
     if(!req.socketId){
         throw new APIError(400,"Socket ID is required")
     }
-    const room=await Room.findOne({roomId:roomId}).select("+OwnershipToken");
+    const room = await Room.findOne({ $or: [{ roomId }, { savedKey: roomId }] }).select("+OwnershipToken");
     if(!room){
         throw new APIError(404,"Room not found")
     }
@@ -59,7 +61,9 @@ const JoinRoom=asyncHandler(async(req,res)=>{
             socketId:req.socketId,
             role:"admin",
         })
-        await req.ioSocket.join(roomId);
+        delete room.OwnershipToken;
+        await req.ioSocket.join(room.roomId);
+        await broadcastMembers(req.ioSocket, room);
         return res.status(200).json(
             new APIResponse(200,{room,Admin}, "Room joined successfully as admin")
         )
@@ -70,7 +74,10 @@ const JoinRoom=asyncHandler(async(req,res)=>{
         socketId:req.socketId,
         role:"member",
     })
-    await req.ioSocket.join(roomId);
+    delete room.OwnershipToken;
+    delete room.savedKey;
+    await req.ioSocket.join(room.roomId);
+    await broadcastMembers(req.ioSocket, room);
     return res.status(200).json(
         new APIResponse(200,{room,member}, "Room joined successfully")
     )
@@ -102,6 +109,7 @@ const saveRoom=asyncHandler(async(req,res)=>{
     room.isSaved=true;
     room.savedKey=crypto.randomBytes(16).toString("hex");
     await room.save();
+    ioSocket.to(room.roomId).emit("room:saveState", { isSaved });
     return res.status(200).json(
         new APIResponse(200,{roomId:room.roomId,savedKey:room.savedKey}, "Your room has been saved successfully. You can share the saved key with others to join the room.")
     )
@@ -132,9 +140,10 @@ const UnsaveRoom=asyncHandler(async(req,res)=>{
     room.isSaved=false;
     room.savedKey=null;
     await room.save();
+    ioSocket.to(room.roomId).emit("room:saveState", { isSaved });
     return res.status(200).json(
         new APIResponse(200,{roomId:room.roomId}, "Your room has been unsaved successfully when everyone has left the room, the room will be deleted automatically. You can save it again if you want to keep it.")
     )
 })
-    
-export {createRoom,JoinRoom,saveRoom,UnsaveRoom};
+
+export {createRoom,JoinRoom,saveRoom,UnsaveRoom,broadcastMembers};

@@ -47,6 +47,11 @@ const socketConnection=(io)=>{
                 }
             }
         });
+
+        socket.on("board:draft", ({ roomId, element }) => {
+            if(roomId && socket.rooms.has(roomId)) socket.to(roomId).emit("board:draft", element);
+        });
+        
         socket.on("disconnect",async()=>{
             console.log("Socket disconnected:",socket.id);
             try{

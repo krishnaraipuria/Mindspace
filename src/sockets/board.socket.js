@@ -27,6 +27,9 @@ const addElementToRoom=async(roomId,element,socket)=>{
     }
     const room= await AuthenticateRoom(roomId,socket);
     const updatedRoom=await Room.findByIdAndUpdate(room._id,{$push:{elements:element}},{new:true});
+    if(!updatedRoom){
+        throw new APIError(500,"Failed to add element to room");
+    }
     if(updatedRoom.modifiedCount===0){
         throw new APIError(500,"Failed to add element to room");
     }

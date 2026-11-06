@@ -3,6 +3,13 @@ import {Room} from "../models/room.models.js";
 import {APIError} from "../utils/APIerror.js";
 
 
+const broadcastMembers = async (io, room) => {
+  const members = await Member.find({ roomId: room._id }).select("username role socketId");
+  io.to(room.roomId).emit("room:members", members.map(m => ({
+    id: m._id, socketId: m.socketId, username: m.username, role: m.role,
+  })));
+};
+
 const removeMemberFromRoom=(async(socketId)=>{
     const member= await Member.findOneAndDelete({socketId:socketId});
     if(!member){
@@ -22,6 +29,7 @@ const removeMemberFromRoom=(async(socketId)=>{
             console.log("Room deleted for roomId:",member.roomId);
         }
     }
+    await broadcastMembers(io, room);
     return {
         message:"Member removed from room successfully",
         remainingMembers:remainingMembers,
@@ -29,4 +37,4 @@ const removeMemberFromRoom=(async(socketId)=>{
     }
 })
 
-export {removeMemberFromRoom};
+export {removeMemberFromRoom,broadcastMembers};
