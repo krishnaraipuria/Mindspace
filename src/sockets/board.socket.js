@@ -30,7 +30,7 @@ const addElementToRoom=async(roomId,element,socket)=>{
     if(!updatedRoom){
         throw new APIError(500,"Failed to add element to room");
     }
-    if(updatedRoom.modifiedCount===0){
+    if(!updatedRoom){
         throw new APIError(500,"Failed to add element to room");
     }
     socket.to(roomId).emit("elementAdded",element);
@@ -53,11 +53,15 @@ const removeElementFromRoom=async(roomId,element,socket)=>{
     }
 
     const room= await AuthenticateRoom(roomId,socket);
-    const updatedRoom=await Room.findByIdAndUpdate(room._id,{$pull:{elements:element}},{new:true});
-    if(updatedRoom.modifiedCount===0){
+    const updatedRoom=await Room.findByIdAndUpdate(
+        room._id,
+        {$pull:{elements:{elementId:element.elementId}}},
+        {new:true}
+    );
+    if(!updatedRoom){
         throw new APIError(500,"Failed to remove element from room");
     }
-    socket.to(roomId).emit("elementRemoved",element);
+    socket.to(roomId).emit("elementRemoved",element.elementId);
     return {
         message:"Element removed from room successfully",
         element:element,
@@ -84,7 +88,7 @@ const updateElementInRoom=async(roomId,oldElement,newElement,socket)=>{
 
     const room= await AuthenticateRoom(roomId,socket);
     const updatedRoom=await Room.findByIdAndUpdate(room._id,{$pull:{elements:oldElement},$push:{elements:newElement}},{new:true});
-    if(updatedRoom.modifiedCount===0){
+    if(!updatedRoom){
         throw new APIError(500,"Failed to update element in room");
     }
     socket.to(roomId).emit("elementUpdated",{old:oldElement,new:newElement});

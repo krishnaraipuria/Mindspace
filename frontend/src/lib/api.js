@@ -1,7 +1,10 @@
 import { API_BASE } from './config'
 
-
-export async function request(method,path,{body, socketId, ownershipToken}={}){
+/**
+ * Calls the backend and unwraps its { statusCode, data, message, success } envelope.
+ * The backend identifies the caller by the `socket-id` header and the host by `ownership-token`.
+ */
+export async function request(method, path, { body, socketId, ownershipToken } = {}) {
   const headers = { 'Content-Type': 'application/json', 'socket-id': socketId || '' }
   if (ownershipToken) headers['ownership-token'] = ownershipToken
 
@@ -9,7 +12,7 @@ export async function request(method,path,{body, socketId, ownershipToken}={}){
   try {
     res = await fetch(`${API_BASE}${path}`, { method, headers, body: JSON.stringify(body || {}) })
   } catch {
-    throw new Error('Cannot reach the server. Please check your internet connection or try again later.')
+    throw new Error('Cannot reach the server. Check that the backend is running.')
   }
   const json = await res.json().catch(() => null)
   if (!res.ok || !json?.success) {

@@ -10,7 +10,7 @@ const broadcastMembers = async (io, room) => {
   })));
 };
 
-const removeMemberFromRoom=(async(socketId)=>{
+const removeMemberFromRoom=(async(socketId, io)=>{
     const member= await Member.findOneAndDelete({socketId:socketId});
     if(!member){
         console.log("Member not found for socketId:",socketId);
@@ -29,7 +29,7 @@ const removeMemberFromRoom=(async(socketId)=>{
             console.log("Room deleted for roomId:",member.roomId);
         }
     }
-    await broadcastMembers(io, room);
+    if (room && io) await broadcastMembers(io, room);
     return {
         message:"Member removed from room successfully",
         remainingMembers:remainingMembers,

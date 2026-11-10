@@ -22,7 +22,7 @@ const socketConnection=(io)=>{
         });
         socket.on("board:element:remove",async(payload,ack)=>{
             try{
-                const result=await removeElementFromRoom(payload?.roomId,payload?.elementId,socket);
+                const result=await removeElementFromRoom(payload?.roomId,payload?.element,socket);
                 if(ack && typeof ack === "function"){
                     ack({success:true,data:result});
                 }
@@ -55,7 +55,7 @@ const socketConnection=(io)=>{
         socket.on("disconnect",async()=>{
             console.log("Socket disconnected:",socket.id);
             try{
-                const result=await removeMemberFromRoom(socket.id);
+                const result=await removeMemberFromRoom(socket.id, io);
                 console.log("Member removed on disconnect:",result);
             }catch(error){
                 console.error("Error removing member on disconnect:",error);
