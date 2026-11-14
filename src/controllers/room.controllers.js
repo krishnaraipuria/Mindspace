@@ -5,7 +5,7 @@ import {APIResponse} from "../utils/APIResponse.js";
 import {Room} from "../models/room.models.js";
 import {Member} from "../models/member.models.js";
 import {asyncHandler} from "../utils/asyncHandler.js";
-import {broadcastMembers} from "../sockets/room.socket.js";
+import {broadcastMembers,cancelPendingRoomDeletion} from "../sockets/room.socket.js";
 
 const verifyHost = async (room, req, hostToken) => {
     if(!hostToken?.trim()){
@@ -74,6 +74,7 @@ const JoinRoom=asyncHandler(async(req,res)=>{
     if(!room){
         throw new APIError(404,"Room not found")
     }
+    cancelPendingRoomDeletion(room._id.toString());
     await Member.deleteOne({socketId:req.socketId});
     if(hostToken && hostTokenHash===room.OwnershipToken){
         const Admin=await Member.create({

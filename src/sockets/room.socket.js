@@ -1,7 +1,29 @@
 import {Member} from "../models/member.models.js";
 import {Room} from "../models/room.models.js";
-import {APIError} from "../utils/APIerror.js";
 
+const ROOM_DISCONNECT_GRACE_MS = 10000;
+const pendingRoomDeletion = new Map();
+
+const cancelPendingRoomDeletion = (roomId) => {
+  const timer = pendingRoomDeletion.get(roomId);
+  if (!timer) return;
+  clearTimeout(timer);
+  pendingRoomDeletion.delete(roomId);
+};
+
+const scheduleRoomDeletion = (roomId) => {
+  cancelPendingRoomDeletion(roomId);
+  const timer = setTimeout(async () => {
+    pendingRoomDeletion.delete(roomId);
+    const remainingMembers = await Member.countDocuments({ roomId });
+    const room = await Room.findById(roomId);
+    if (room && remainingMembers === 0 && !room.isSaved) {
+      await Room.findByIdAndDelete(roomId);
+      console.log("Room deleted for roomId:", room.roomId);
+    }
+  }, ROOM_DISCONNECT_GRACE_MS);
+  pendingRoomDeletion.set(roomId, timer);
+};
 
 const broadcastMembers = async (io, room) => {
   const members = await Member.find({ roomId: room._id }).select("username role socketId");
@@ -25,8 +47,7 @@ const removeMemberFromRoom=(async(socketId, io)=>{
     if(remainingMembers===0){
         const room=await Room.findById(member.roomId);
         if(room && !room.isSaved){
-            await Room.findByIdAndDelete(member.roomId);
-            console.log("Room deleted for roomId:",member.roomId);
+            scheduleRoomDeletion(member.roomId);
         }
     }
     if (room && io) await broadcastMembers(io, room);
@@ -37,4 +58,4 @@ const removeMemberFromRoom=(async(socketId, io)=>{
     }
 })
 
-export {removeMemberFromRoom,broadcastMembers};
+export {removeMemberFromRoom,broadcastMembers,cancelPendingRoomDeletion};

@@ -20,13 +20,13 @@ const ssSet = (k, v) => { try { sessionStorage.setItem(k, v) } catch { /* storag
 const ownerToken = (roomId) => {
   const key = tokenKey(roomId)
   const current = ssGet(key)
-  if (current) return current
-  const legacy = lsGet(key)
-  if (legacy) {
-    ssSet(key, legacy)
-    lsRemove(key)
+  if (current) {
+    lsSet(key, current)
+    return current
   }
-  return legacy
+  const token = lsGet(key)
+  if (token) ssSet(key, token)
+  return token
 }
 
 export const getSavedUsername = () => lsGet(USERNAME_KEY) || ''
@@ -135,6 +135,7 @@ export function RoomProvider({ children }) {
     async (username) => {
       await waitConnected()
       const data = await request('POST', '/create-room', { body: { username }, socketId: socket.id })
+      lsSet(tokenKey(data.roomId), data.ownershipToken)
       ssSet(tokenKey(data.roomId), data.ownershipToken)
 
       sessionRef.current = { roomId: data.roomId, username }
@@ -371,6 +372,7 @@ export function RoomProvider({ children }) {
       socketId: socket.id,
       ownershipToken: token,
     })
+    lsSet(tokenKey(data.savedKey), token)
     setSession((cur) => cur && { ...cur, isSaved: true, savedKey: data.savedKey })
     return data.savedKey
   }, [])
@@ -384,6 +386,7 @@ export function RoomProvider({ children }) {
       socketId: socket.id,
       ownershipToken: token,
     })
+    if (s.savedKey) lsRemove(tokenKey(s.savedKey))
     setSession((cur) => cur && { ...cur, isSaved: false, savedKey: null })
   }, [])
 
